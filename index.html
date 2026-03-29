@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pip Hustler fx — Quant Trader v2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --green: #00ff88;
+            --green2: #00cc6a;
+            --dark: #050d0a;
+            --dark2: #0a1a10;
+            --dark3: #0f2416;
+            --amber: #ffa500;
+            --red: #ff3c3c;
+            --cyan: #00e5ff;
+            --white: #e8fff4;
+            --muted: #4a8a6a;
+            --border: #1a3d28;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            background: var(--dark);
+            color: var(--green);
+            font-family: 'Share Tech Mono', monospace;
+            cursor: crosshair;
+        }
+
+        /* SCANLINES OVERLAY */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 136, 0.015) 2px,
+                rgba(0, 255, 136, 0.015) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* SHADER CANVAS */
+        #shader-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* =========== HERO =========== */
+        .hero {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.55rem;
+            color: var(--green);
+            border: 1px solid var(--green);
+            padding: 6px 14px;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes badgePulse {
+            0%, 100% {
+                box-shadow: 0 0 6px var(--green), inset 0 0 6px rgba(0, 255, 136, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 20px var(--green), inset 0 0 20px rgba(0, 255, 136, 0.15);
+            }
+        }
+
+        .hero-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.2rem, 6vw, 4rem);
+            font-weight: 900;
+            color: var(--white);
+            line-height: 1.1;
+            letter-spacing: -1px;
+            animation: nameReveal 1.2s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes nameReveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-name span {
+            color: var(--green);
+        }
+
+        .hero-tag {
+            font-size: 0.85rem;
+            color: var(--muted);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin: 0.8rem 0 1.5rem;
+            animation: fadeSlide 1.4s ease-out 0.3s both;
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* LIVE TICKER */
+        .ticker-wrap {
+            background: var(--dark2);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 0;
+            overflow: hidden;
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        .ticker-wrap::before,
+        .ticker-wrap::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 80px;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .ticker-wrap::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--dark2), transparent);
+        }
+
+        .ticker-wrap::after {
+            right: 0;
+            background: linear-gradient(270deg, var(--dark2), transparent);
+        }
+
+        .ticker {
+            display: flex;
+            gap: 0;
+            animation: ticker 25s linear infinite;
+            white-space: nowrap;
+        }
+
+        .ticker-item {
+            padding: 0 20px;
+            font-size: 0.75rem;
+            color: var(--cyan);
+            letter-spacing: 1px;
+        }
+
+        .ticker-item.up {
+            color: var(--green);
+        }
+
+        .ticker-item.down {
+            color: var(--red);
+        }
+
+        @keyframes ticker {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        /* =========== PLAYER CARD =========== */
+        .player-card {
+            background: rgba(10, 26, 16, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 2rem 0;
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .level-badge {
+            width: 100px;
+            height: 100px;
+            border: 2px solid var(--green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--green);
+            background: rgba(0, 255, 136, 0.05);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+            animation: levelPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes levelPulse {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(0, 255, 136, 0.4);
+            }
+        }
+
+        .player-info h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+
+        .player-title {
+            color: var(--cyan);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .player-level {
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+
+        .xp-bar-container {
+            margin: 1rem 0;
+        }
+
+        .xp-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .xp-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--green);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), var(--cyan));
+            width: 0%;
+            animation: fillXP 2s ease-out forwards;
+        }
+
+        @keyframes fillXP {
+            to {
+                width: 78%;
+            }
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-box {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: var(--green);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--green);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        /* =========== SECTIONS =========== */
+        section {
+            margin: 3rem 0;
+            padding: 2rem;
+            background: rgba(10, 26, 16, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            animation: sectionFade 0.8s ease-out;
+        }
+
+        @keyframes sectionFade {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        section h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: var(--white);
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+            letter-spacing: 2px;
+        }
+
+        /* QUEST CARDS */
+        .quests-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .quest-card {
+            background: rgba(0, 20, 10, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quest-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .quest-card:hover {
+            border-color: var(--green);
+            background: rgba(0, 30, 20, 0.9);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+        }
+
+        .quest-card:hover::before {
+            left: 100%;
+        }
+
+        .quest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .quest-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: var(--white);
+            font-weight: 700;
+        }
+
+        .quest-badge {
+            font-size: 0.6rem;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .badge-active {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--green);
+            border: 1px solid var(--green);
+        }
+
+        .badge-learning {
+            background: rgba(0, 229, 255, 0.2);
+            color: var(--cyan);
+            border: 1px solid var(--cyan);
+        }
+
+        .badge-mastered {
+            background: rgba(255, 165, 0, 0.2);
+            color: var(--amber);
+            border: 1px solid var(--amber);
+        }
+
+        .quest-description {
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* SKILL TREE */
+        .skill-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .skill-name {
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .skill-percent {
+            color: var(--green);
+        }
+
+        .skill-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .skill-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), var(--cyan));
+            width: 0%;
+            animation: fillSkill 1.5s ease-out forwards;
+        }
+
+        @keyframes fillSkill {
+            to {
+                width: var(--skill-width, 50%);
+            }
+        }
+
+        /* TOOLS GRID */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 1rem;
+        }
+
+        .tool-btn {
+            padding: 1rem;
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--green);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .tool-btn:hover {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--green);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+            transform: scale(1.05);
+        }
+
+        /* LEARNING PATH */
+        .learning-item {
+            background: rgba(0, 20, 10, 0.6);
+            border-left: 3px solid var(--green);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+
+        .learning-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--white);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .learning-desc {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+
+        .learning-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .learning-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), var(--cyan));
+            width: 0%;
+            animation: fillSkill 1.5s ease-out forwards;
+        }
+
+        /* FUN FACTS */
+        .facts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .fact-card {
+            background: rgba(0, 20, 10, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        .fact-card:hover {
+            background: rgba(0, 30, 20, 0.9);
+            border-color: var(--green);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.15);
+        }
+
+        /* CONNECT */
+        .connect-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .connect-card {
+            background: rgba(0, 20, 10, 0.8);
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .connect-card:hover {
+            border-style: solid;
+            border-color: var(--green);
+            background: rgba(0, 30, 20, 0.9);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+        }
+
+        .connect-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .connect-value {
+            color: var(--green);
+            font-weight: 700;
+            word-break: break-all;
+        }
+
+        .connect-value a {
+            color: var(--green);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .connect-value a:hover {
+            color: var(--cyan);
+            text-decoration: underline;
+        }
+
+        /* QUOTE */
+        .quote {
+            text-align: center;
+            font-style: italic;
+            color: var(--muted);
+            padding: 2rem 0;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* ACHIEVEMENT TOAST */
+        .achievement-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: rgba(10, 26, 16, 0.95);
+            border: 1px solid var(--green);
+            border-radius: 4px;
+            color: var(--green);
+            font-size: 0.85rem;
+            z-index: 1000;
+            animation: toastSlide 0.3s ease-out, toastSlideOut 0.3s ease-out 3.7s forwards;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+
+        @keyframes toastSlide {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .hero-name {
+                font-size: 2rem;
+            }
+
+            .player-card {
+                grid-template-columns: 1fr;
+            }
+
+            .level-badge {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+
+            section {
+                padding: 1.5rem;
+            }
+
+            section h2 {
+                font-size: 1.2rem;
+            }
+
+            .quests-grid,
+            .tools-grid,
+            .facts-grid,
+            .connect-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Three.js Shader Canvas -->
+    <canvas id="shader-canvas"></canvas>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero">
+            <div class="hero-badge">LEVEL 24</div>
+            <h1 class="hero-name">Pip Hustler <span>fx</span></h1>
+            <p class="hero-tag">Aspiring Quant Trader · Math Lover · Code Builder</p>
+
+            <!-- Live Ticker -->
+            <div class="ticker-wrap">
+                <div class="ticker" id="ticker">
+                    <span class="ticker-item up">BTC: $68,420 +2.3%</span>
+                    <span class="ticker-item down">ETH: $3,850 -1.2%</span>
+                    <span class="ticker-item up">EUR/USD: 1.0950 +0.5%</span>
+                    <span class="ticker-item">GOLD: $2,045 ±0%</span>
+                    <span class="ticker-item up">SPY: $512.30 +1.8%</span>
+                    <span class="ticker-item">VIX: 14.2 -0.3%</span>
+                    <span class="ticker-item up">BTC: $68,420 +2.3%</span>
+                    <span class="ticker-item down">ETH: $3,850 -1.2%</span>
+                    <span class="ticker-item up">EUR/USD: 1.0950 +0.5%</span>
+                    <span class="ticker-item">GOLD: $2,045 ±0%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Card -->
+        <div class="player-card">
+            <div class="level-badge">24</div>
+            <div class="player-info">
+                <h2>Pip Hustler fx</h2>
+                <p class="player-title">Quant Warrior · Market Mage</p>
+                <p class="player-level">LEVEL 24 — ALGORITHMIC TRADER</p>
+                <div class="xp-bar-container">
+                    <div class="xp-label">
+                        <span>XP Progress to Level 25</span>
+                        <span id="xp-text">1872 / 2400 XP</span>
+                    </div>
+                    <div class="xp-bar">
+                        <div class="xp-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-value">2</div>
+                <div class="stat-label">YEARS TRADING</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">∞</div>
+                <div class="stat-label">CHARTS READ</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">Pro</div>
+                <div class="stat-label">PYTHON</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">Active</div>
+                <div class="stat-label">GAME DEV</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">Learning</div>
+                <div class="stat-label">QUANT</div>
+            </div>
+        </div>
+
+        <!-- Active Quests -->
+        <section>
+            <h2>Active Quests</h2>
+            <div class="quests-grid">
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Market Veteran</div>
+                        <div class="quest-badge badge-active">ACTIVE</div>
+                    </div>
+                    <p class="quest-description">2 years of live trading — mastered price action, S/R levels & risk management</p>
+                </div>
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Quant Ascension</div>
+                        <div class="quest-badge badge-learning">LEARNING</div>
+                    </div>
+                    <p class="quest-description">Studying Quantitative Finance, Algorithmic Trading & Statistical Arbitrage</p>
+                </div>
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Python Forge</div>
+                        <div class="quest-badge badge-active">ACTIVE</div>
+                    </div>
+                    <p class="quest-description">Building financial analytics tools & fun games. Where math meets creativity</p>
+                </div>
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Backtest Dungeon</div>
+                        <div class="quest-badge badge-learning">LEARNING</div>
+                    </div>
+                    <p class="quest-description">Exploring quant models, backtesting frameworks & market microstructure</p>
+                </div>
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Candlestick Sage</div>
+                        <div class="quest-badge badge-mastered">MASTERED</div>
+                    </div>
+                    <p class="quest-description">Mastered candlestick patterns, trend analysis & price action</p>
+                </div>
+                <div class="quest-card">
+                    <div class="quest-header">
+                        <div class="quest-title">Game Architect</div>
+                        <div class="quest-badge badge-active">ACTIVE</div>
+                    </div>
+                    <p class="quest-description">Building 2D games. The best way to understand an algorithm? Turn it into a game</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skill Tree -->
+        <section>
+            <h2>Skill Tree</h2>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">HTML</span>
+                    <span class="skill-percent">90%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 90%; animation-delay: 0.1s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">CSS</span>
+                    <span class="skill-percent">90%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 90%; animation-delay: 0.2s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">JavaScript</span>
+                    <span class="skill-percent">28%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 28%; animation-delay: 0.3s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">Python</span>
+                    <span class="skill-percent">25%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 25%; animation-delay: 0.4s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">React</span>
+                    <span class="skill-percent">22%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 22%; animation-delay: 0.5s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">Tailwind CSS</span>
+                    <span class="skill-percent">18%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 18%; animation-delay: 0.6s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">TypeScript</span>
+                    <span class="skill-percent">15%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 15%; animation-delay: 0.7s;"></div>
+                </div>
+            </div>
+            <div class="skill-item">
+                <div class="skill-header">
+                    <span class="skill-name">Git</span>
+                    <span class="skill-percent">20%</span>
+                </div>
+                <div class="skill-bar">
+                    <div class="skill-fill" style="--skill-width: 20%; animation-delay: 0.8s;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Weapons & Tools -->
+        <section>
+            <h2>Weapons & Tools</h2>
+            <div class="tools-grid">
+                <button class="tool-btn">Python</button>
+                <button class="tool-btn">Lua</button>
+                <button class="tool-btn">JavaScript</button>
+                <button class="tool-btn">HTML5</button>
+                <button class="tool-btn">CSS3</button>
+                <button class="tool-btn">NumPy</button>
+                <button class="tool-btn">Pandas</button>
+                <button class="tool-btn">Linux</button>
+                <button class="tool-btn">Bash</button>
+                <button class="tool-btn">Git</button>
+                <button class="tool-btn">Jupyter</button>
+                <button class="tool-btn">VS Code</button>
+            </div>
+        </section>
+
+        <!-- Current Learning Path -->
+        <section>
+            <h2>Current Learning Path</h2>
+            <div class="learning-item">
+                <div class="learning-title">Quant Finance</div>
+                <div class="learning-desc">Options pricing · Backtesting · Factor models</div>
+                <div class="learning-bar">
+                    <div class="learning-fill" style="--skill-width: 45%;"></div>
+                </div>
+            </div>
+            <div class="learning-item">
+                <div class="learning-title">Web Dev</div>
+                <div class="learning-desc">JavaScript (deepening skills)</div>
+                <div class="learning-bar">
+                    <div class="learning-fill" style="--skill-width: 60%;"></div>
+                </div>
+            </div>
+            <div class="learning-item">
+                <div class="learning-title">Data Science</div>
+                <div class="learning-desc">Statistical modeling · ML for finance</div>
+                <div class="learning-bar">
+                    <div class="learning-fill" style="--skill-width: 38%;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Fun Facts -->
+        <section>
+            <h2>Fun Facts</h2>
+            <div class="facts-grid">
+                <div class="fact-card">More hours reading candlestick charts than watching Netflix</div>
+                <div class="fact-card">Builds Python games because math is more fun with explosions</div>
+                <div class="fact-card">Genuinely enjoys maths — proofs, stats, linear algebra... all of it</div>
+                <div class="fact-card">Linux terminal is the comfort zone. GUI is for civilians.</div>
+            </div>
+        </section>
+
+        <!-- Connect -->
+        <section>
+            <h2>Connect</h2>
+            <div class="connect-grid">
+                <div class="connect-card">
+                    <div class="connect-label">EMAIL</div>
+                    <div class="connect-value"><a href="mailto:dadybiel96@gmail.com">dadybiel96@gmail.com</a></div>
+                </div>
+                <div class="connect-card">
+                    <div class="connect-label">GITHUB</div>
+                    <div class="connect-value"><a href="https://github.com/Dady7220" target="_blank">github.com/Dady7220</a></div>
+                </div>
+                <div class="connect-card">
+                    <div class="connect-label">LINKEDIN</div>
+                    <div class="connect-value">Coming Soon</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quote -->
+        <div class="quote">"The market is the ultimate teacher — it charges tuition in real time."</div>
+    </div>
+
+    <!-- Three.js Shader Script -->
+    <script>
+        // Initialize Three.js Shader
+        const canvas = document.getElementById('shader-canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.Camera();
+        camera.position.z = 1;
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Vertex shader
+        const vertexShader = `
+            void main() {
+                gl_Position = vec4(position, 1.0);
+            }
+        `;
+
+        // Fragment shader - 21 Dev style
+        const fragmentShader = `
+            #define TWO_PI 6.2831853072
+            #define PI 3.14159265359
+
+            precision highp float;
+            uniform vec2 resolution;
+            uniform float time;
+
+            void main(void) {
+                vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+                float t = time * 0.05;
+                float lineWidth = 0.002;
+
+                vec3 color = vec3(0.0);
+                for(int j = 0; j < 3; j++){
+                    for(int i = 0; i < 5; i++){
+                        color[j] += lineWidth * float(i * i) / abs(fract(t - 0.01 * float(j) + float(i) * 0.01) * 5.0 - length(uv) + mod(uv.x + uv.y, 0.2));
+                    }
+                }
+                
+                gl_FragColor = vec4(color[0], color[1], color[2], 1.0);
+            }
+        `;
+
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const uniforms = {
+            time: { value: 1.0 },
+            resolution: { value: new THREE.Vector2() }
+        };
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        function onWindowResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            renderer.setSize(width, height);
+            uniforms.resolution.value.x = renderer.domElement.width;
+            uniforms.resolution.value.y = renderer.domElement.height;
+        }
+
+        onWindowResize();
+        window.addEventListener('resize', onWindowResize);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            uniforms.time.value += 0.05;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Achievement Toasts
+        function showAchievement(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'achievement-toast';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Show achievements on page load and scroll
+        window.addEventListener('load', () => {
+            setTimeout(() => showAchievement('Achievement Unlocked: Profile Visitor'), 1000);
+        });
+
+        let lastScroll = 0;
+        window.addEventListener('scroll', () => {
+            const scrolled = window.scrollY;
+            if (scrolled - lastScroll > 500) {
+                const achievements = [
+                    'Achievement Unlocked: Skill Explorer',
+                    '+50 XP for exploring the Skill Tree',
+                    'Math + Code + Markets = Unstoppable'
+                ];
+                showAchievement(achievements[Math.floor(Math.random() * achievements.length)]);
+                lastScroll = scrolled;
+            }
+        });
+
+        // Tool button interactions
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                showAchievement(`Selected: ${this.textContent}`);
+            });
+        });
+
+        // Update XP text on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('xp-text').textContent = '1872 / 2400 XP';
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
